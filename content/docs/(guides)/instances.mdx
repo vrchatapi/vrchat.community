@@ -1,11 +1,8 @@
 ---
 title: Instances
 icon: Boxes
+description: Instances are parallel "rooms" or "lobbies" of a world. Each instance can only hold a limited number of users, but there is no limit on how many instances can exist of a world. Instances are uniquely identified by the combined World ID and Instance ID.
 ---
-
-Instances are parallel "rooms" or "lobbies" of a world.
-Each instance can only hold a limited number of users, but there is no limit on how many instances can exist of a world.
-Instances are uniquely identified by the combined World ID and Instance ID.
 
 <Callout>
   As of 2024-05-02, VRChat indicated in [a Developer
@@ -18,7 +15,7 @@ Instances are uniquely identified by the combined World ID and Instance ID.
 ## Instance ID
 
 The instance ID is the combined sum of all the arguments to the instance e.g. name, owner, and privacy setting.
-The arguments are in the order of name, friends, hidden, private, canRequestInvite, region, nonce.
+The arguments are formatted in the order: `name`, one of: (`friends` | hidden` | `private` | (`group`, `groupAccessType`)), `ageGate`, `canRequestInvite`, `region`, `nonce`.
 
 ### Owner ID
 
@@ -26,20 +23,40 @@ Differentiate two concepts, "Instance Owner" and "Instance Master".
 The "Owner" of an instance is the creator of the instance, is permanent, and has permission to insta-kick users without having to go through the Voting system.
 The "Instance Master" is the Photon sync master and is responsible for object syncing. The Instance Master is whoever has stayed in the instance the longest.
 
-### Nonce
+The presence of one of the arguments `friends`, hidden`, `private`, or `group` indicates that the instance has a canonical owner.
+The `group` argument indicates that an instance is a group instance.
 
-Nonce is the Cryptographic key used to lock non-public instances to prevent people from guessing the Instance ID. It is not included in the location of public instances, and is formatted as "nonce(key)" where key is the cryptographic key.
+In particular:
+
+| Instance Type | InstanceID fragment                          |
+| ------------- | -------------------------------------------- |
+| Public        | (n/a)                                        |
+| Friends Plus  | `~hidden(<userId>)`                          |
+| Friends       | `~friends(<userId>)`                         |
+| Invite Plus   | `~private(<userId>)~canRequestInvite`        |
+| Invite        | `~private(<userId>)`                         |
+| Group Public  | `~group(<groupId>)~groupAccessType(public)`  |
+| Group Plus    | `~group(<groupId>)~groupAccessType(plus)`    |
+| Group Members | `~group(<groupId>)~groupAccessType(members)` |
+
+### Age Gate
+
+`~ageGate` indicates that only users who are 18+ verified can join the instance. Users do not necessarily need to actively display 18+ verification on their profiles.
 
 ### Region
 
-Region indicates the geographical location of the Photon servers used for the instance. **Default:** `us`
+`~region(<token>)` indicates the geographical location of the Photon servers used for the instance. **Default:** `us`
 
 | Region    | Hosted in       | Token |
 | --------- | --------------- | ----- |
-| USA, West | San José        | us    |
-| USA, East | Washington D.C. | use   |
-| Europe    | Amsterdam       | eu    |
-| Japan     | Tokyo           | jp    |
+| USA, West | San José        | `us`  |
+| USA, East | Washington D.C. | `use` |
+| Europe    | Amsterdam       | `eu`  |
+| Japan     | Tokyo           | `jp`  |
+
+### Nonce
+
+`~nonce(<value>)` is the Cryptographic key used to lock non-public instances to prevent people from guessing the Instance ID. It is not included in the location of public instances, and is formatted as "nonce(key)" where key is the cryptographic key.
 
 ### Special Values
 

@@ -6,7 +6,7 @@ description: VRChat's Websocket API, also known as "the pipeline", is used recei
 
 ## Connecting
 
-Connecting to the VRChat webhook server is done via the URL:
+Connecting to the VRChat websocket server is done via the URL:
 
 ```
 wss://pipeline.vrchat.cloud/?authToken=authcookie_...
@@ -19,7 +19,7 @@ It is possible to be connected from multiple locations at the same time. All cli
 <Callout type="info">
 **Most messages are double-encoded!**
 
-All notification `content` values will be documented in JSON object form. The "`content`" frield is a **stringified** version of the JSON object, and needs to be unpacked separately. _(with the exception of `see-notification` and `hide-notification` events, which take a notification ID instead.)_
+All notification `content` values will be documented in JSON object form. The "`content`" field is a **stringified** version of the JSON object, and needs to be unpacked separately. _(with the exception of `see-notification` and `hide-notification` events, which take a notification ID instead.)_
 
 ```json
 {
@@ -30,48 +30,20 @@ All notification `content` values will be documented in JSON object form. The "`
 
 </Callout>
 
-## Note on Enumerations
+### Error messages
 
-Several JSON string values present in both Websocket API messages and HTTP API responses appear to be contained in predictably consistent sets.
-Throughout both APIs, the empty string `""` is returned in places (including the immediately) where it would seem otherwise reasonable to have a `null` or undefined value.
-In this part of the documentation, the following `":identifier"`s will be used to describe possible enumeration-ish values:
+In some cases, although a websocket connection may open successfully, it may have or develop an invalid state, in which case an error message is sent to the client and the connection is closed.
 
-- `":locationString"`
-  - `""` Pseudo-null value
-  - `"offline"` Implies a user currently is not either running the VRChat client or connected to the Pipeline (e.g., browser tab open)
-  - `"traveling"` Indicates a user's client is travelling between instances (e.g., downloading world, synchronizing world state)
-    - Also can be `"traveling:traveling`
-  - `"private"` Indicates a user's location is not visible to the currently logged-in user. (e.g., Ask Me/Do Not Disturb status, Invite/Invite+/Group instance)
-  - _other values_ An actual location (see [Instances](/instances))
-- `":platformString"`
-  - `""` Pseudo-null value
-  - `"standalonewindows"`
-  - `"android"`
-  - `"web"` User is on a https://vrchat.com/home page
-  - _other values_ Some other platform or third-party application (e.g., `"ios"` could be the value for a future build on some Apple devices)
-- `":contentRefreshContentTypeEnum"`
-  - `"gallery"`
-  - `"icon"`
-  - `"emoji"`
-  - `"print"`
-  - `"prints"` is also a value observed, but this never has an id attached
-  - `"sticker"`
-  - `"inventory"` appears to mirror other
-  - `"avatar"`
-  - `"world"`
-  - _other values_ Some other user-uploaded content
-- `":contentRefreshActionTypeEnum"`
-  - `"created"`
-  - `"deleted"`
-  - `"add"` \*
-  - `"delete"` \*
-  - _other values_ Not expected<br/> \* _only observed with_ `"inventory"` _content type_
-- `":inventoryType"`
-  - `"sticker"`
-  - `"emoji"`
-  - `"bundle"`
-  - `"prop"`
-  - _other values_ Some other user-uploaded or creator economy content
+```json
+{
+  "err": <string>, // A text description of the error
+  "<additional>": <value> // Additional properties describing the context of the error
+}
+```
+
+For example:
+- VRChat is experiencing a service outage: `{"err":"Error finding user {userId}"}`
+- Websocket connection opened from a client IP address different from the one issued the `authToken`: `{"err":"authToken doesn't correspond with an active session","authToken":"{authToken}","ip":"{ipAddress}"}`
 
 ## Events
 
@@ -568,3 +540,46 @@ Role structure matches the GroupRole object from the [Groups API](/reference/get
   }
 }
 ```
+
+## Note on Enumerations
+
+Several JSON string values present in both Websocket API messages and HTTP API responses appear to be contained in predictably consistent sets.
+Throughout both APIs, the empty string `""` is returned in places where it would otherwise seem reasonable to have a `null` or undefined value.
+In this part of the documentation, the following `":identifier"`s will be used to describe possible enumeration-ish values:
+
+- `":locationString"`
+  - `""` Pseudo-null value
+  - `"offline"` Implies a user currently is not either running the VRChat client or connected to the Pipeline (e.g., browser tab open)
+  - `"traveling"` Indicates a user's client is travelling between instances (e.g., downloading world, synchronizing world state)
+    - Also can be `"traveling:traveling`
+  - `"private"` Indicates a user's location is not visible to the currently logged-in user. (e.g., Ask Me/Do Not Disturb status, Invite/Invite+/Group instance)
+  - _other values_ An actual location (see [Instances](/instances))
+- `":platformString"`
+  - `""` Pseudo-null value
+  - `"standalonewindows"`
+  - `"android"`
+  - `"web"` User is on a https://vrchat.com/home page
+  - _other values_ Some other platform or third-party application (e.g., `"ios"` could be the value for a future build on some Apple devices)
+- `":contentRefreshContentTypeEnum"`
+  - `"gallery"`
+  - `"icon"`
+  - `"emoji"`
+  - `"print"`
+  - `"prints"` is also a value observed, but this never has an id attached
+  - `"sticker"`
+  - `"inventory"` appears to mirror other
+  - `"avatar"`
+  - `"world"`
+  - _other values_ Some other user-uploaded content
+- `":contentRefreshActionTypeEnum"`
+  - `"created"`
+  - `"deleted"`
+  - `"add"` \*
+  - `"delete"` \*
+  - _other values_ Not expected<br/> \* _only observed with_ `"inventory"` _content type_
+- `":inventoryType"`
+  - `"sticker"`
+  - `"emoji"`
+  - `"bundle"`
+  - `"prop"`
+  - _other values_ Some other user-uploaded or creator economy content

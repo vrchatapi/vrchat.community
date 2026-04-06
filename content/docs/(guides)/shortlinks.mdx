@@ -1,29 +1,71 @@
 ---
 title: Short Links
 icon: Files
+description: VRChat has a number of ways to shorten URLs for users, instances, groups, and calendar events. These redirect people to the `https://vrchat.com/home/...` pages on the website.
 ---
 
-VRChat has several ways users can share links to instances, users, and groups.
+VRChat has several ways users can share links to various types of content.
 Canonically, the URLs that many people will use are those they see in their browser, starting with `https://vrchat.com/home/...`.
-But there are other URLs for users, groups, worlds, and instances that offer brevity.
-Each of the following describes an HTTP `GET` request, where VRChat replies with an HTTP `302 Found` and the target URL in the `Location` header of the response.
+However, there are other URLs for users, groups, worlds, instances, and calendar events that offer brevity.
+
+## HTTP Redirects
+
+<Callout type="info">
+Upon receiving a `GET` request, VRChat will sometimes chain redirects, replying with `302 Found`, `302 Moved Temporarily`, or `307 Temporary Redirect` with a target url in the `Location` response header.
+If the HTTP `GET` was directed at an api endpoint (URL paths starting with `/api/1/`), you will need to sumbit a properly formatted `User-Agent` header with the request.
+For example, the `GET https://vrc.group/VRCHAT.0000` redirect looks like this:
+
+```properties
+GET /VRCHAT.0000 HTTP/1.1
+Host: vrc.group
+User-Agent: example/4.2.67 example@vrchat.community; https://discord.gg/vrchat; https://github.com/vrchatapi/vrchat.community
+Accept: */*
+
+HTTP/1.1 302 Found
+Date: Mon, 06 Apr 2026 21:52:45 GMT
+Content-Length: 0
+Connection: keep-alive
+Location: https://vrchat.com/api/1/groups/redirect/VRCHAT.0000
+```
+
+</Callout>
 
 ### Users
 
-`https://vrch.at/<userId>` redirects to `https://vrchat.com/home/user/<userId>`
+`https://vrch.at/<userId>`
+- redirects to `https://vrchat.com/home/user/<userId>`
 
-### Worlds
-
-`https://vrch.at/<worldId>` redirects to `https://vrchat.com/home/world/<worldId>`
+Notably, this method does not work for users with old IDs like `8JoV9XEdpo` (the UserID for the official VRChat account), as these are interpreted as `shortName`s for instances.
 
 ### Instances
 
-`https://vrch.at/<shortName>` redirects to `https://vrchat.com/i/<shortName>`
-`https://vrchat.com/i/<shortName>` redirects to `https://vrchat.com/home/launch?worldId=<worldId>&instanceId=<instanceId>&shortName=<shortName>`
+`https://vrch.at/<shortName>`
+- redirects to `https://vrchat.com/i/<shortName>`
+- which redirects to `https://vrchat.com/home/launch?worldId=<worldId>&instanceId=<instanceId>&shortName=<shortName>`
+
+### Worlds
+
+Worlds are treated as a special case for instances. They do not link directly to the world info page.
+
+`https://vrch.at/<worldId>`
+- redirects to `https://vrchat.com/home/launch?worldId=<worldId>`
 
 ### Groups
 
-`https://vrc.group/<groupCodeAndDisc>` redirects to `https://vrchat.com/api/1/groups/redirect/<groupCodeAndDisc>`
-`https://vrchat.com/api/1/groups/redirect/<groupCodeAndDisc>` redirects to `https://vrchat.com/home/group/<groupId>`
-This last one is actually programmatically useful, as it can be used to resolve a group code with discriminator to the group's ID without having to use the 'search groups' API endpoint.
-Ex.: `GET https://vrchat.com/api/1/groups/redirect/VRCHAT.0000` redirects to `https://vrchat.com/home/group/grp_7ccb6ca3-cd36-4dab-9ab1-7bcf08d794e4`
+`https://vrc.group/<groupCodeAndDisc>`
+- redirects to `https://vrchat.com/api/1/groups/redirect/<groupCodeAndDisc>`
+- which redirects to `https://api.vrchat.com/api/1/groups/redirect/<groupCodeAndDisc>`
+- which redirects to `https://vrchat.com/home/group/<groupId>`
+
+The last redirect is actually programmatically useful, as it can be used to resolve a group code with discriminator to the group's ID without having to use the 'search groups' API endpoint.
+Ex.: `GET https://api.vrchat.com/api/1/groups/redirect/VRCHAT.0000` redirects to `https://vrchat.com/home/group/grp_7ccb6ca3-cd36-4dab-9ab1-7bcf08d794e4`
+
+### Calendar Events
+
+`https://vrch.at/c/<shortCode>`
+- redirects to `https://vrchat.com/api/1/shortCode/c/<shortCode>`
+- which redirects to `https://vrchat.com/home/group/<groupId>/calendar/<calendarId>`
+
+<Callout>
+  As of 2026-04-06, the last redirect is speculative (as `/api/1/shortCode/c/<shortCode>` always returns a `404 Not Found`), but is based on unused code visible in the website.
+</Callout>
