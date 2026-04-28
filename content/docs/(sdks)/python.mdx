@@ -1,17 +1,299 @@
 ---
 title: Python
 preferred_title: VRChat.py
-description: VRChat.py is a Python SDK for interacting with the VRChat API, allowing developers to create applications that can access and manipulate VRChat data.
+description: A full-featured Python SDK for the VRChat API, with generated endpoint clients, model types, and authentication helpers.
 icon: Python
 github: vrchatapi/vrchatapi-python
 links:
   - href: https://pypi.org/project/vrchatapi
 ---
 
-<TooShort />
+## Install
 
-## Installation
-
-```bash
+```package-install
 pip install vrchatapi
+```
+
+## Usage
+
+You can import the VRChat Python SDK, build a `Configuration`, create an `ApiClient`, and then use endpoint-specific API classes.
+
+```python
+import vrchatapi
+from vrchatapi.api.authentication_api import AuthenticationApi
+
+configuration = vrchatapi.Configuration(
+    username="your_username_or_email",
+    password="your_password",
+)
+
+# Build an ApiClient from the configuration (credentials + HTTP session state).
+with vrchatapi.ApiClient(configuration) as api_client:
+    # VRChat requires app name + version + contact info in User-Agent.
+    api_client.user_agent = "ExampleApp/1.0.0 you@example.com"
+
+    # Create the AuthenticationApi endpoint client using this shared ApiClient.
+    # You can do this for other endpoint clients similarly.
+    auth_api = AuthenticationApi(api_client)
+```
+
+### Authentication
+
+To interact with authenticated VRChat endpoints, your script needs to complete login and, when required, 2FA.
+2FA can be either an email code or an authenticator app code.
+
+#### Automatic (recommended)
+
+The SDK will attempt authentication when you call an authenticated endpoint like `get_current_user()`.
+
+```python
+import vrchatapi
+from vrchatapi.api.authentication_api import AuthenticationApi
+
+configuration = vrchatapi.Configuration(
+    username="your_username_or_email",
+    password="your_password",
+)
+
+with vrchatapi.ApiClient(configuration) as api_client:
+    api_client.user_agent = "ExampleApp/1.0.0 you@example.com"
+    auth_api = AuthenticationApi(api_client)
+
+    # --- Continued from previous module ---
+    user = auth_api.get_current_user()
+    print(f"Logged in as {user.display_name}")
+```
+
+#### Two-factor authentication (email OTP + authenticator code)
+
+If login returns `requiresTwoFactorAuth`, prompt for the required code type and verify, then retry `get_current_user()`.
+
+```python
+# Built-in module used to parse JSON error bodies from the API.
+import json
+
+# Main VRChat SDK package, and endpoint client like before.
+import vrchatapi
+from vrchatapi.api.authentication_api import AuthenticationApi
+
+# SDK exception type for API failures.
+from vrchatapi.exceptions import ApiException
+# Model used for authenticator-app 2FA codes, and email codes. This enforces input formatting safely.
+from vrchatapi.models.two_factor_auth_code import TwoFactorAuthCode
+from vrchatapi.models.two_factor_email_code import TwoFactorEmailCode
+
+# Basic SDK configuration with account credentials.
+configuration = vrchatapi.Configuration(
+    username="your_username_or_email",
+    password="your_password",
+)
+
+# Create a client session used by all API endpoint clients, like before.
+with vrchatapi.ApiClient(configuration) as api_client:
+    api_client.user_agent = "ExampleApp/1.0.0 you@example.com"
+    auth_api = AuthenticationApi(api_client)
+
+
+# A try block to catch errors.
+    try:
+        # Try to fetch current user (this also triggers login flow if not logged in).
+        user = auth_api.get_current_user()
+# An except block to parse the expected error: "Requires 2fa code" -> "Is it Email code or 2FA code" -> accept input and retry.
+    except ApiException as exc:
+        # If login needs 2FA, VRChat returns details in the error body.
+        payload = {}
+        # Extract the raw response body from the exception.
+        body = getattr(exc, "body", "") or ""
+        try:
+            # Parse the JSON body so we can inspect required 2FA methods.
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            # If parsing fails, keep payload empty and continue safely.
+            pass
+
+        # Example: ["totp","otp"] or ["emailOtp"].
+        required = payload.get("requiresTwoFactorAuth")
+        # Handle authenticator app code flow.
+        if isinstance(required, list) and ("totp" in required or "otp" in required):
+            # Ask the user for the 6-digit code from their authenticator app.
+            code = input("Authenticator 2FA required. Enter code: ").strip()
+            # Verify that authenticator code.
+            auth_api.verify2_fa(TwoFactorAuthCode(code=code))
+            # Retry fetching current user after verification.
+            user = auth_api.get_current_user()
+            
+        # Handle email one-time code flow.
+        elif isinstance(required, list) and "emailOtp" in required:
+            # Ask the user for the code sent to email.
+            code = input("Email OTP required. Enter code: ").strip()
+            # Verify the email OTP.
+            auth_api.verify2_fa_email_code(TwoFactorEmailCode(code=code))
+            # Retry fetching current user after verification.
+            user = auth_api.get_current_user()
+        else:
+            # If this wasn't a known 2FA response, re-raise the original error.
+            raise
+
+    # If login + verification succeeded, user data is now available.
+    print(f"Logged in as {user.display_name}")
+```
+
+#### Manual flow (explicit endpoint usage)
+
+If you prefer explicit control, call authentication endpoints directly and handle failures with `ApiException`. This is useful if you want to handle errors or two-factor authentication in a custom way.
+
+```python
+# Main VRChat SDK package.
+import vrchatapi
+# Authentication endpoint client.
+from vrchatapi.api.authentication_api import AuthenticationApi
+# SDK exception type for API failures.
+from vrchatapi.exceptions import ApiException
+
+# Basic SDK configuration with account credentials.
+configuration = vrchatapi.Configuration(
+    username="your_username_or_email",
+    password="your_password",
+)
+
+# Create a client session used by all API endpoint clients.
+with vrchatapi.ApiClient(configuration) as api_client:
+    # Required by VRChat to identify your application.
+    api_client.user_agent = "ExampleApp/1.0.0 you@example.com"
+    # Build the authentication API wrapper from this client.
+    auth_api = AuthenticationApi(api_client)
+
+    try:
+        # Attempt login by requesting current user info.
+        user = auth_api.get_current_user()
+        print(f"Logged in as {user.display_name}")
+    except ApiException as exc:
+        # Print a short error summary.
+        print(f"Login failed: {exc}")
+        # Print the raw API error body for debugging details.
+        print(getattr(exc, "body", ""))
+```
+
+### Reusing sessions
+
+The Python SDK uses cookies behind the scenes in its API client. If you keep the same running process and API client alive, authenticated calls can reuse the existing session.  
+If your app restarts, you usually need to authenticate again unless you implement your own persistent cookie/session storage around the client.
+
+In order to accomplish this, we persist the HTTP cookie jar to disk and reload it on startup.
+
+This lets your script reuse existing auth cookies between runs via `pickle`
+
+```python
+import os
+import pickle # PICKLE
+
+import vrchatapi
+from vrchatapi.api.authentication_api import AuthenticationApi
+
+COOKIE_FILE = "vrchat_cookies.pkl"
+
+configuration = vrchatapi.Configuration(
+    username="your_username_or_email",
+    password="your_password",
+)
+
+with vrchatapi.ApiClient(configuration) as api_client:
+    api_client.user_agent = "ExampleApp/1.0.0 you@example.com"
+
+    # If a saved cookie file exists, load it before making requests.
+    if os.path.exists(COOKIE_FILE):
+        with open(COOKIE_FILE, "rb") as fh:
+            api_client.rest_client.pool_manager.cookiejar = pickle.load(fh)
+
+    auth_api = AuthenticationApi(api_client)
+    user = auth_api.get_current_user()
+    print(f"Logged in as {user.display_name}")
+
+    # Save updated cookies after successful login/use.
+    with open(COOKIE_FILE, "wb") as fh:
+        pickle.dump(api_client.rest_client.pool_manager.cookiejar, fh)
+```
+
+## Frequently Asked Questions
+
+### Error: please identify yourself with a properly formatted user-agent...
+
+This happens when the request does not include a VRChat-compliant `User-Agent` header.  
+Set it explicitly on the API client before making requests:
+
+```python
+import vrchatapi
+
+configuration = vrchatapi.Configuration(
+    username="your_username_or_email",
+    password="your_password",
+)
+
+with vrchatapi.ApiClient(configuration) as api_client:
+    api_client.user_agent = "ExampleApp/1.0.0 you@example.com"
+    # Continue with API calls...
+```
+
+### How do I auto-generate 2FA codes instead of typing them manually?
+
+Use `pyotp` to generate authenticator (TOTP) codes from your account's secret key.
+Obtain this during 2FA setup on the vrchat website by pressing "Copy" on the link displayed when scanning the 2FA QR code.
+It will look like this: `otpauth://totp/VRChat:your_email_here?secret=COPY_THIS_SECRET&issuer=VRChat`
+
+Install it:
+
+```package-install
+pip install pyotp
+```
+
+Minimal code generation example:
+
+```python
+import pyotp
+
+TOTP_SECRET = "YOUR_BASE32_SECRET_FROM_QR_SETUP"
+code = pyotp.TOTP(TOTP_SECRET).now()
+print(code)  # Example: 123456
+```
+
+Use it in the VRChat login flow:
+
+```python
+import json
+import pyotp
+import vrchatapi
+from vrchatapi.api.authentication_api import AuthenticationApi
+from vrchatapi.exceptions import ApiException
+from vrchatapi.models.two_factor_auth_code import TwoFactorAuthCode
+
+TOTP_SECRET = "YOUR_BASE32_SECRET_FROM_QR_SETUP"
+
+configuration = vrchatapi.Configuration(
+    username="your_username_or_email",
+    password="your_password",
+)
+
+with vrchatapi.ApiClient(configuration) as api_client:
+    api_client.user_agent = "ExampleApp/1.0.0 you@example.com"
+    auth_api = AuthenticationApi(api_client)
+
+    try:
+        user = auth_api.get_current_user()
+    except ApiException as exc:
+        payload = {}
+        body = getattr(exc, "body", "") or ""
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            pass
+
+        required = payload.get("requiresTwoFactorAuth")
+        if isinstance(required, list) and ("totp" in required or "otp" in required):
+            code = pyotp.TOTP(TOTP_SECRET).now() # One-liner!
+            auth_api.verify2_fa(TwoFactorAuthCode(code=code))
+            user = auth_api.get_current_user()
+        else:
+            raise
+
+    print(f"Logged in as {user.display_name}")
 ```
