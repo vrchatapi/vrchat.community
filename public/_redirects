@@ -10,6 +10,7 @@
 
 /contributing/openapi /contributing
 /reference /reference/get-current-user
+/reference/get-cosmetic-index /reference/get-cosmetics
 
 /tutorials/getting-started /getting-started
 /tutorials/instances /instances
