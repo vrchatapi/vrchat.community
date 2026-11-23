@@ -1,11 +1,11 @@
 import { GitHubContributors } from "@/components/contributors";
-import { githubAccessKey, githubUrl } from "@/github";
+import { GithubInfo } from "@/components/github-info";
+import { githubUrl } from "@/github";
 import { cn } from "@/lib/cn";
 import { getPageContributors, getPageSource, icon, type source } from "@/lib/source";
 import { Image } from "fumadocs-core/framework";
 import Link from "fumadocs-core/link";
 import type { InferPageType } from "fumadocs-core/source";
-import { GithubInfo } from "fumadocs-ui/components/github-info";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
 import { PageLastUpdate } from "fumadocs-ui/page";
 
@@ -62,7 +62,6 @@ export async function ActionBar({ page }: { page: InferPageType<typeof source> }
             className={buttonVariants({ size: "sm", color: "ghost" })}
             owner={contentGithubOrganization}
             repo={contentGithubRepository}
-            token={githubAccessKey}
           />
         )}
       </div>
