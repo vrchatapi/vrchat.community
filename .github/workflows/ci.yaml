@@ -38,7 +38,7 @@ jobs:
         run: echo "SPECIFICATION_URL=${{ github.event.inputs.url }}" >> $GITHUB_ENV
       
       - if: env.SPECIFICATION_URL == ''
-        run: echo "SPECIFICATION_URL=https://github.com/vrchatapi/specification/releases/latest/download/openapi.json" >> $GITHUB_ENV
+        run: echo "SPECIFICATION_URL=https://github.com/vrchatapi/specification/releases/download/nightly/openapi.json" >> $GITHUB_ENV
 
       - run: pnpm build
         env:
